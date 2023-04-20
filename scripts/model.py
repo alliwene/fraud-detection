@@ -6,7 +6,7 @@ from sklearn.calibration import LabelEncoder
 from sklearn.metrics import classification_report, f1_score, roc_auc_score
 from sklearn.neighbors import LocalOutlierFactor
 
-from typing import Dict
+import plotly.graph_objs as go
 
 class FraudModel:
     def __init__(self, df: pd.DataFrame):
@@ -67,7 +67,7 @@ class FraudModel:
         X, y = self.get_feat_target(chunk_size, features)
 
         # create an empty list to store the scores
-        scores = []
+        self.scores = []
 
         # loop over the range of n_neighbors
         for num in range(1, range_num):
@@ -75,23 +75,36 @@ class FraudModel:
             y_pred = lof.fit_predict(X)
             y_pred = pd.Series(y_pred).map({-1: 1, 1: 0})
             score = f1_score(y, y_pred, average="macro")
-            scores.append(score)
+            self.scores.append(score)
             print(f"n_neighbors: {num}, F1-score: {score}")
             print("====" * 10)
 
         # get the best n_neighbors
-        best_n_neighbors = np.argmax(scores) * 1 + 1
+        best_n_neighbors = np.argmax(self.scores) * 1 + 1
         self.best_n_neighbors = best_n_neighbors
 
         # log the best n_neighbors and max score
         print("\n")
-        print(f"Best n_neighbors: {best_n_neighbors} with score {max(scores)}")
+        print(f"Best n_neighbors: {best_n_neighbors} with score {max(self.scores)}")
 
-        # plot n_neighbors vs F1-score
-        plt.figure(figsize=(10, 4))
-        plt.plot(range(1, range_num), scores)
-        plt.xticks(range(1, range_num))
-        plt.title("n_neighbors vs F1-score")
-        plt.xlabel("n_neighbors")
-        plt.ylabel("F1-score")
-        plt.show()
+    def plot_n_neighbors(self, range_num: int = 10):
+        # plot n_neighbors vs F1-score 
+        fig = go.Figure(data=go.Scatter(x=list(range(1, range_num)), y=self.scores))
+        fig.update_layout(title='n_neighbors vs F1-score', xaxis_title='n_neighbors', yaxis_title='F1-score')       
+        fig.show()
+
+
+    def plot_results(self):
+        result_df = pd.DataFrame().from_dict(self.results).T.reset_index(names="model")
+        
+        # Create the bar plot for AUC-Scores
+        fig = go.Figure()
+        fig.add_trace(go.Bar(x=result_df['model'], y=result_df['AUC-Score'], name='AUC-Score'))
+        fig.add_trace(go.Bar(x=result_df['model'], y=result_df['F1-Score'], name='F1-Score'))
+
+        # Update layout
+        fig.update_layout(title='AUC and F1-Scores for Anomaly Detection Models', yaxis_title='Scores')
+
+        # Show the plot
+        fig.show()
+
